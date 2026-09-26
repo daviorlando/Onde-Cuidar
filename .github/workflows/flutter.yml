@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout application
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Require app and lockfile
@@ -29,7 +29,7 @@ jobs:
           test -f app/pubspec.yaml
           test -f app/pubspec.lock
       - name: Checkout verified Flutter SDK
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: flutter/flutter
           ref: 9584c6713b324636289d067944a46fd6b49df14b # Flutter 3.47.4 stable (ver .flutter-version)
