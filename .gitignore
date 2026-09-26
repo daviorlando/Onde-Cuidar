@@ -1,0 +1,40 @@
+# Flutter / Dart
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/build/
+**/coverage/
+**/android/.gradle/
+**/android/local.properties
+.ci-flutter/
+
+# Credenciais e artefatos privados
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+key.properties
+**/key.properties
+credentials*.json
+secrets/
+research-private/
+evidencias-privadas/
+*.apk
+*.aab
+*.p12
+*.pem
+
+# Ferramentas locais
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+.DS_Store
+.claude/settings.local.json
+
+# pubspec.lock de aplicativo deve ser versionado.
+
+# Extratos OSM brutos (centenas de MB; baixar com scripts/data)
+data/raw/osm/
+

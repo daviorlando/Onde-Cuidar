@@ -1,0 +1,95 @@
+name: Release APK
+
+# Manual: gera APK assinado a partir de um commit já integrado em main.
+# Segredos só existem no ambiente protegido "release" (aprovação do responsável);
+# nunca são expostos a pull_request.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag ou SHA de main a publicar (ex.: v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-apk:
+    name: release-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: release
+    steps:
+      - name: Checkout requested ref
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require ref reachable from main
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main
+      - name: Checkout verified Flutter SDK
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: flutter/flutter
+          ref: 9584c6713b324636289d067944a46fd6b49df14b # Flutter 3.47.4 stable
+          path: .ci-flutter
+          persist-credentials: false
+      - name: Fetch pinned Flutter release tag
+        run: |
+          git -C .ci-flutter fetch --depth=1 origin refs/tags/3.47.4:refs/tags/3.47.4
+          test "$(git -C .ci-flutter rev-list -n 1 3.47.4)" = "$(git -C .ci-flutter rev-parse HEAD)"
+      - name: Configure SDK and JDK
+        run: |
+          printf '%s\n' "$GITHUB_WORKSPACE/.ci-flutter/bin" >> "$GITHUB_PATH"
+          test -n "${JAVA_HOME_21_X64:-}"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+      - name: Quality checks
+        working-directory: app
+        run: |
+          flutter config --jdk-dir "$JAVA_HOME"
+          flutter pub get --enforce-lockfile
+          dart format --output=none --set-exit-if-changed lib test
+          flutter analyze
+          flutter test
+      - name: Validate data
+        run: python3 scripts/check_docs.py && python3 scripts/data/validate_data.py
+      - name: Prepare signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            printf 'storeFile=%s\n' "$RUNNER_TEMP/release.jks"
+            printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+          } > app/android/key.properties
+      - name: Build signed APK
+        working-directory: app
+        run: flutter build apk --release
+      - name: Remove signing material
+        if: always()
+        run: rm -f app/android/key.properties "$RUNNER_TEMP/release.jks"
+      - name: Checksum
+        working-directory: app/build/app/outputs/flutter-apk
+        run: sha256sum app-release.apk | tee app-release.apk.sha256
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: onde-cuidar-apk-${{ inputs.ref }}
+          path: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/build/app/outputs/flutter-apk/app-release.apk.sha256
+          retention-days: 30

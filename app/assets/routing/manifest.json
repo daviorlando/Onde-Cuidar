@@ -1,0 +1,26 @@
+{
+ "id": "petrolina-car",
+ "format_version": 1,
+ "version": "2026-09-22.1",
+ "region": "Petrolina–PE",
+ "profile": "car",
+ "bbox": {
+  "south": -9.528141045045045,
+  "west": -41.00465227722107,
+  "north": -8.578453954954956,
+  "east": -40.162386722778926
+ },
+ "margin_km": 5.0,
+ "nodes": 268272,
+ "edges": 556942,
+ "bytes": 8231778,
+ "sha256": "5d32da5ece3b71f8b0a0f4eee33a55d7735a114aadbd8e4c42630182a0bcacc7",
+ "compressed_bytes": 4335844,
+ "compressed_sha256": "051ffa27e131eefa24f8d1fde648a468f644f9d06e6f13e1baeab4ee2ee6746d",
+ "source": "OpenStreetMap via Geofabrik (nordeste-260922.osm.pbf)",
+ "osm_timestamp": "2026-09-22T20:22:59Z",
+ "license": "ODbL 1.0 — © colaboradores do OpenStreetMap",
+ "generated_at": "2026-09-23T18:52:56Z",
+ "dropped_disconnected_nodes": 1885,
+ "min_app_version": "0.1.0"
+}

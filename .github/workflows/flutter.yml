@@ -1,0 +1,80 @@
+name: Flutter CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter-quality:
+    name: flutter-quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout application
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Require app and lockfile
+        run: |
+          test -f app/pubspec.yaml
+          test -f app/pubspec.lock
+      - name: Checkout verified Flutter SDK
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: flutter/flutter
+          ref: 9584c6713b324636289d067944a46fd6b49df14b # Flutter 3.47.4 stable (ver .flutter-version)
+          path: .ci-flutter
+          persist-credentials: false
+      - name: Fetch pinned Flutter release tag
+        # A ferramenta deriva a versão da tag; buscar só ela e conferir o SHA fixado.
+        run: |
+          git -C .ci-flutter fetch --depth=1 origin refs/tags/3.47.4:refs/tags/3.47.4
+          test "$(git -C .ci-flutter rev-list -n 1 3.47.4)" = "$(git -C .ci-flutter rev-parse HEAD)"
+      - name: Configure SDK and validated runner JDK
+        env:
+          JAVA_MAJOR: 21 # AGP 9.1 / Gradle 9.3.1 aceitam 17–25; local validado com 25
+        run: |
+          printf '%s\n' "$GITHUB_WORKSPACE/.ci-flutter/bin" >> "$GITHUB_PATH"
+          jdk_variable="JAVA_HOME_${JAVA_MAJOR}_X64"
+          jdk_path="${!jdk_variable:-}"
+          test -n "$jdk_path"
+          printf 'JAVA_HOME=%s\n' "$jdk_path" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$jdk_path" >> "$GITHUB_PATH"
+      - name: Check toolchain
+        run: |
+          flutter config --jdk-dir "$JAVA_HOME"
+          flutter --version
+          flutter doctor -v
+      - name: Resolve locked dependencies
+        working-directory: app
+        run: flutter pub get --enforce-lockfile
+      - name: Check generated code is up to date
+        working-directory: app
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          git diff --exit-code -- lib
+      - name: Validate catalog and road package
+        run: python3 scripts/data/validate_data.py
+      - name: Format
+        working-directory: app
+        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Analyze
+        working-directory: app
+        run: flutter analyze
+      - name: Test
+        working-directory: app
+        run: flutter test --coverage
+      - name: Build Android debug APK
+        working-directory: app
+        run: flutter build apk --debug
+      # Integração Android/offline exige aparelho/emulador (PR-10); debug não é release assinada.
